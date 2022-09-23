@@ -1,6 +1,4 @@
 import logging
-from dataclasses import dataclass
-from typing import Optional
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -21,6 +19,7 @@ AUDIO_SCOPE_ON = True
 def calc_bin_centres(bin_edges):
     return (bin_edges[:-1] + bin_edges[1:]) / 2
 
+
 def main():
     camera = cv.VideoCapture(0)
     microphone = sc.default_microphone()
@@ -28,6 +27,7 @@ def main():
         print("Cannot open camera")
         exit()
 
+    hist_fig = None
     if VIDEO_HISTOGRAM_ON:
         hist_fig, hist_ax = plt.subplots(1, 1)
         hist_ax.set_xlabel('Pixel intensity')
@@ -40,21 +40,17 @@ def main():
         g_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'g')
         b_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'b')
 
+    audio_fig = None
     if AUDIO_SCOPE_ON:
-        fig, sound_ax = plt.subplots(1, 1)
+        audio_fig, sound_ax = plt.subplots(1, 1)
         sound_ax.set_ylim([-1., 1.])
         sound_ax.set_xlabel('Time (ms)')
         sound_ax.set_ylabel('Amplitude')
 
-
-
-    # Todo: Use empty values/lists here instead of control flow
-    init = True
-
-
-    time_in_ms = 1e3 * np.linspace(0, NUM_AUDIO_SAMPLES / SAMPLE_RATE - 1 / NUM_AUDIO_SAMPLES, NUM_AUDIO_SAMPLES)
-    sound_line_l, = sound_ax.plot(time_in_ms, mic_data[:, 0])
-    sound_line_r, = sound_ax.plot(time_in_ms, mic_data[:, 1])
+        # init audio scope
+        time_in_ms = 1e3 * np.linspace(0, NUM_AUDIO_SAMPLES / SAMPLE_RATE - 1 / NUM_AUDIO_SAMPLES, NUM_AUDIO_SAMPLES)
+        sound_line_l, = sound_ax.plot(time_in_ms, np.zeros(NUM_AUDIO_SAMPLES))
+        sound_line_r, = sound_ax.plot(time_in_ms, np.zeros(NUM_AUDIO_SAMPLES))
 
     # LOOP
     while True:
@@ -74,34 +70,29 @@ def main():
             bin_centres_g = calc_bin_centres(bin_edges_g)
             bin_centres_b = calc_bin_centres(bin_edges_b)
 
-
+            r_line.set_data(bin_centres_r, r)
+            g_line.set_data(bin_centres_g, g)
+            b_line.set_data(bin_centres_b, b)
 
         if AUDIO_SCOPE_ON:
             with microphone.recorder(samplerate=SAMPLE_RATE) as mic:
                 mic_data = mic.record(numframes=NUM_AUDIO_SAMPLES)
 
+            sound_line_l.set_ydata(mic_data[:, 0])
+            # sound_line_r.set_ydata(mic_data[:, 1])
 
-        # todo: to refine
-        if init:
+        if AUDIO_SCOPE_ON or VIDEO_HISTOGRAM_ON:
+            plt.pause(1e-3)  # this redraws the MATPLOTLIB plot
 
-            init = False
-        else:
-            r_line.set_data(bin_centres_r, r)
-            g_line.set_data(bin_centres_g, g)
-            b_line.set_data(bin_centres_b, b)
-            sound_line_l.set_ydata(mic_data[:,0])
-            sound_line_r.set_ydata(mic_data[:,1])
-
-        plt.pause(1e-3)  # this redraws the MATPLOTLIB plot
-
-        # Display the video frame using OpenCV
-        cv.imshow('frame', frame)
+        if VIDEO_DISPLAY_ON:
+            # Display the video frame using OpenCV
+            cv.imshow('frame', frame)
 
         if (
                 cv.waitKey(1) == ord('q')  # detect keypress with CV window focus.
                 # The wait is required to display the video frame.
-                or not cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE)  # detect CV window close
-                or not plt.fignum_exists(fig.number)  # detect MATPLOTLIB window close
+                or (hist_fig and not cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE))  # detect CV window close
+                or (audio_fig and not plt.fignum_exists(audio_fig.number))  # detect MATPLOTLIB window close
         ):
             break
 
