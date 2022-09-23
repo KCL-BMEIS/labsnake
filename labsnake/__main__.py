@@ -36,7 +36,6 @@ def main():
                 print("Can't receive frame (stream end?). Exiting ...")
                 break
             mic_data = mic.record(numframes=1024)
-            print(max(mic_data))
 
             # OpenCV colour format is BGR
             b, bin_edges_b = np.histogram(frame[:, :, 0], bins=HIST_BINS)
@@ -51,13 +50,15 @@ def main():
                 r_line, = hist_ax.plot(bin_centres_r, r, 'r')
                 g_line, = hist_ax.plot(bin_centres_g, g, 'g')
                 b_line, = hist_ax.plot(bin_centres_b, b, 'b')
-                sound_line, = sound_ax.plot(mic_data)
+                sound_line_l, = sound_ax.plot(mic_data[:,0])
+                sound_line_r, = sound_ax.plot(mic_data[:,1])
                 init = False
             else:
                 r_line.set_data(bin_centres_r, r)
                 g_line.set_data(bin_centres_g, g)
                 b_line.set_data(bin_centres_b, b)
-                sound_line.set_ydata(mic_data)
+                sound_line_l.set_ydata(mic_data[:,0])
+                sound_line_r.set_ydata(mic_data[:,1])
 
             plt.pause(1e-3)  # this redraws the MATPLOTLIB plot
 
