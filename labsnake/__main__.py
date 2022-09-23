@@ -29,49 +29,50 @@ def main():
 
     init = True
 
-    with microphone.recorder(samplerate=48000) as mic:
-        while True:
-            frame_read_successful, frame = camera.read()
-            if not frame_read_successful:
-                print("Can't receive frame (stream end?). Exiting ...")
-                break
+
+    while True:
+        frame_read_successful, frame = camera.read()
+        if not frame_read_successful:
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
+        with microphone.recorder(samplerate=48000) as mic:
             mic_data = mic.record(numframes=1024)
 
-            # OpenCV colour format is BGR
-            b, bin_edges_b = np.histogram(frame[:, :, 0], bins=HIST_BINS)
-            g, bin_edges_g = np.histogram(frame[:, :, 1], bins=HIST_BINS)
-            r, bin_edges_r = np.histogram(frame[:, :, 2], bins=HIST_BINS)
+        # OpenCV colour format is BGR
+        b, bin_edges_b = np.histogram(frame[:, :, 0], bins=HIST_BINS)
+        g, bin_edges_g = np.histogram(frame[:, :, 1], bins=HIST_BINS)
+        r, bin_edges_r = np.histogram(frame[:, :, 2], bins=HIST_BINS)
 
-            bin_centres_r = calc_bin_centres(bin_edges_r)
-            bin_centres_g = calc_bin_centres(bin_edges_g)
-            bin_centres_b = calc_bin_centres(bin_edges_b)
+        bin_centres_r = calc_bin_centres(bin_edges_r)
+        bin_centres_g = calc_bin_centres(bin_edges_g)
+        bin_centres_b = calc_bin_centres(bin_edges_b)
 
-            if init:
-                r_line, = hist_ax.plot(bin_centres_r, r, 'r')
-                g_line, = hist_ax.plot(bin_centres_g, g, 'g')
-                b_line, = hist_ax.plot(bin_centres_b, b, 'b')
-                sound_line_l, = sound_ax.plot(mic_data[:,0])
-                sound_line_r, = sound_ax.plot(mic_data[:,1])
-                init = False
-            else:
-                r_line.set_data(bin_centres_r, r)
-                g_line.set_data(bin_centres_g, g)
-                b_line.set_data(bin_centres_b, b)
-                sound_line_l.set_ydata(mic_data[:,0])
-                sound_line_r.set_ydata(mic_data[:,1])
+        if init:
+            r_line, = hist_ax.plot(bin_centres_r, r, 'r')
+            g_line, = hist_ax.plot(bin_centres_g, g, 'g')
+            b_line, = hist_ax.plot(bin_centres_b, b, 'b')
+            sound_line_l, = sound_ax.plot(mic_data[:,0])
+            sound_line_r, = sound_ax.plot(mic_data[:,1])
+            init = False
+        else:
+            r_line.set_data(bin_centres_r, r)
+            g_line.set_data(bin_centres_g, g)
+            b_line.set_data(bin_centres_b, b)
+            sound_line_l.set_ydata(mic_data[:,0])
+            sound_line_r.set_ydata(mic_data[:,1])
 
-            plt.pause(1e-3)  # this redraws the MATPLOTLIB plot
+        plt.pause(1e-3)  # this redraws the MATPLOTLIB plot
 
-            # Display the video frame using OpenCV
-            cv.imshow('frame', frame)
+        # Display the video frame using OpenCV
+        cv.imshow('frame', frame)
 
-            if (
-                    cv.waitKey(1) == ord('q')  # detect keypress with CV window focus.
-                    # The wait is required to display the video frame.
-                    or not cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE)  # detect CV window close
-                    or not plt.fignum_exists(fig.number)  # detect MATPLOTLIB window close
-            ):
-                break
+        if (
+                cv.waitKey(1) == ord('q')  # detect keypress with CV window focus.
+                # The wait is required to display the video frame.
+                or not cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE)  # detect CV window close
+                or not plt.fignum_exists(fig.number)  # detect MATPLOTLIB window close
+        ):
+            break
 
     # When everything done, release the capture
     camera.release()
