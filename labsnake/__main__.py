@@ -1,4 +1,6 @@
 import logging
+from dataclasses import dataclass
+from typing import Optional
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -11,6 +13,10 @@ HIST_BINS = 12
 SAMPLE_RATE = 48000
 NUM_AUDIO_SAMPLES = 1024
 
+VIDEO_DISPLAY_ON = True
+VIDEO_HISTOGRAM_ON = True
+AUDIO_SCOPE_ON = True
+
 
 def calc_bin_centres(bin_edges):
     return (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -22,45 +28,62 @@ def main():
         print("Cannot open camera")
         exit()
 
-    fig, (hist_ax, sound_ax) = plt.subplots(2, 1)
+    if VIDEO_HISTOGRAM_ON:
+        hist_fig, hist_ax = plt.subplots(1, 1)
+        hist_ax.set_xlabel('Pixel intensity')
+        hist_ax.set_ylabel('Frequency')
+        hist_ax.set_xlim([0, 255])
+        hist_ax.set_ylim([0, 1e6])
 
-    sound_ax.set_ylim([-1.,1.])
-    sound_ax.set_xlabel('Time (ms)')
-    sound_ax.set_ylabel('Amplitude')
+        # Init Histogram
+        r_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'r')
+        g_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'g')
+        b_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'b')
 
-    hist_ax.set_xlabel('Pixel intensity')
-    hist_ax.set_ylabel('Frequency')
-    hist_ax.set_xlim([0, 255])
-    hist_ax.set_ylim([0, 1e6])
+    if AUDIO_SCOPE_ON:
+        fig, sound_ax = plt.subplots(1, 1)
+        sound_ax.set_ylim([-1., 1.])
+        sound_ax.set_xlabel('Time (ms)')
+        sound_ax.set_ylabel('Amplitude')
+
+
 
     # Todo: Use empty values/lists here instead of control flow
     init = True
 
 
+    time_in_ms = 1e3 * np.linspace(0, NUM_AUDIO_SAMPLES / SAMPLE_RATE - 1 / NUM_AUDIO_SAMPLES, NUM_AUDIO_SAMPLES)
+    sound_line_l, = sound_ax.plot(time_in_ms, mic_data[:, 0])
+    sound_line_r, = sound_ax.plot(time_in_ms, mic_data[:, 1])
+
+    # LOOP
     while True:
-        frame_read_successful, frame = camera.read()
-        if not frame_read_successful:
-            print("Can't receive frame (stream end?). Exiting ...")
-            break
-        with microphone.recorder(samplerate=SAMPLE_RATE) as mic:
-            mic_data = mic.record(numframes=NUM_AUDIO_SAMPLES)
 
-        # OpenCV colour format is BGR
-        b, bin_edges_b = np.histogram(frame[:, :, 0], bins=HIST_BINS)
-        g, bin_edges_g = np.histogram(frame[:, :, 1], bins=HIST_BINS)
-        r, bin_edges_r = np.histogram(frame[:, :, 2], bins=HIST_BINS)
+        if VIDEO_DISPLAY_ON or VIDEO_HISTOGRAM_ON:
+            frame_read_successful, frame = camera.read()
+            if not frame_read_successful:
+                print("Can't receive frame (stream end?). Exiting ...")
+                break
 
-        bin_centres_r = calc_bin_centres(bin_edges_r)
-        bin_centres_g = calc_bin_centres(bin_edges_g)
-        bin_centres_b = calc_bin_centres(bin_edges_b)
+            # OpenCV colour format is BGR
+            b, bin_edges_b = np.histogram(frame[:, :, 0], bins=HIST_BINS)
+            g, bin_edges_g = np.histogram(frame[:, :, 1], bins=HIST_BINS)
+            r, bin_edges_r = np.histogram(frame[:, :, 2], bins=HIST_BINS)
 
+            bin_centres_r = calc_bin_centres(bin_edges_r)
+            bin_centres_g = calc_bin_centres(bin_edges_g)
+            bin_centres_b = calc_bin_centres(bin_edges_b)
+
+
+
+        if AUDIO_SCOPE_ON:
+            with microphone.recorder(samplerate=SAMPLE_RATE) as mic:
+                mic_data = mic.record(numframes=NUM_AUDIO_SAMPLES)
+
+
+        # todo: to refine
         if init:
-            r_line, = hist_ax.plot(bin_centres_r, r, 'r')
-            g_line, = hist_ax.plot(bin_centres_g, g, 'g')
-            b_line, = hist_ax.plot(bin_centres_b, b, 'b')
-            time_in_ms = 1e3 * np.linspace(0,NUM_AUDIO_SAMPLES/SAMPLE_RATE - 1/NUM_AUDIO_SAMPLES, NUM_AUDIO_SAMPLES)
-            sound_line_l, = sound_ax.plot(time_in_ms, mic_data[:,0])
-            sound_line_r, = sound_ax.plot(time_in_ms, mic_data[:,1])
+
             init = False
         else:
             r_line.set_data(bin_centres_r, r)
