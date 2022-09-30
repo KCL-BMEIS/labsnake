@@ -1,4 +1,5 @@
 import logging
+from time import perf_counter
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 HIST_BINS = 12
 SAMPLE_RATE = 48000
-NUM_AUDIO_SAMPLES = 1024
+NUM_AUDIO_SAMPLES = 4096
 
 VIDEO_DISPLAY_ON = True
 VIDEO_HISTOGRAM_ON = True
@@ -74,25 +75,36 @@ def main():
             g_line.set_data(bin_centres_g, g)
             b_line.set_data(bin_centres_b, b)
 
+            hist_fig.canvas.draw()
+
+            hist_figure_bitmap = np.frombuffer(hist_fig.canvas.tostring_rgb(), dtype=np.uint8)
+            hist_figure_bitmap = hist_figure_bitmap.reshape(hist_fig.canvas.get_width_height()[::-1] + (3,))
+
+            cv.imshow('hist', hist_figure_bitmap)
         if AUDIO_SCOPE_ON:
             with microphone.recorder(samplerate=SAMPLE_RATE) as mic:
                 mic_data = mic.record(numframes=NUM_AUDIO_SAMPLES)
 
             sound_line_l.set_ydata(mic_data[:, 0])
-            # sound_line_r.set_ydata(mic_data[:, 1])
+            sound_line_r.set_ydata(mic_data[:, 1])
 
-        if AUDIO_SCOPE_ON or VIDEO_HISTOGRAM_ON:
-            plt.pause(1e-3)  # this redraws the MATPLOTLIB plot
+            audio_fig.canvas.draw()
+
+            audio_figure_bitmap = np.frombuffer(audio_fig.canvas.tostring_rgb(), dtype=np.uint8)
+            audio_figure_bitmap = audio_figure_bitmap.reshape(audio_fig.canvas.get_width_height()[::-1] + (3,))
+
+            cv.imshow('audio', audio_figure_bitmap)
 
         if VIDEO_DISPLAY_ON:
             # Display the video frame using OpenCV
-            cv.imshow('frame', frame)
+            tic = perf_counter()
+            cv.imshow('video_frame', frame)
+            print(f'{perf_counter() - tic}')
 
         if (
                 cv.waitKey(1) == ord('q')  # detect keypress with CV window focus.
                 # The wait is required to display the video frame.
-                or (hist_fig and not cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE))  # detect CV window close
-                or (audio_fig and not plt.fignum_exists(audio_fig.number))  # detect MATPLOTLIB window close
+                or cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE)  # detect CV window close
         ):
             break
 
