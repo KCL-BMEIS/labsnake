@@ -1,5 +1,4 @@
 import logging
-from time import perf_counter
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -28,30 +27,29 @@ def main():
         print("Cannot open camera")
         exit()
 
-    hist_fig = None
-    if VIDEO_HISTOGRAM_ON:
-        hist_fig, hist_ax = plt.subplots(1, 1)
-        hist_ax.set_xlabel('Pixel intensity')
-        hist_ax.set_ylabel('Frequency')
-        hist_ax.set_xlim([0, 255])
-        hist_ax.set_ylim([0, 1e6])
+    # INIT
+    hist_fig, hist_ax = plt.subplots(1, 1)
+    hist_ax.set_xlabel('Pixel intensity')
+    hist_ax.set_ylabel('Frequency')
+    hist_ax.set_xlim([0, 255])
+    hist_ax.set_ylim([0, 1e6])
 
-        # Init Histogram
-        r_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'r')
-        g_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'g')
-        b_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'b')
+    # Init Histogram
+    r_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'r')
+    g_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'g')
+    b_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'b')
 
-    audio_fig = None
-    if AUDIO_SCOPE_ON:
-        audio_fig, sound_ax = plt.subplots(1, 1)
-        sound_ax.set_ylim([-1., 1.])
-        sound_ax.set_xlabel('Time (ms)')
-        sound_ax.set_ylabel('Amplitude')
+    audio_fig, sound_ax = plt.subplots(1, 1)
+    sound_ax.set_ylim([-1., 1.])
+    sound_ax.set_xlabel('Time (ms)')
+    sound_ax.set_ylabel('Amplitude')
 
-        # init audio scope
-        time_in_ms = 1e3 * np.linspace(0, NUM_AUDIO_SAMPLES / SAMPLE_RATE - 1 / NUM_AUDIO_SAMPLES, NUM_AUDIO_SAMPLES)
-        sound_line_l, = sound_ax.plot(time_in_ms, np.zeros(NUM_AUDIO_SAMPLES))
-        sound_line_r, = sound_ax.plot(time_in_ms, np.zeros(NUM_AUDIO_SAMPLES))
+    # init audio scope
+    duration = NUM_AUDIO_SAMPLES / SAMPLE_RATE
+    dt = 1 / SAMPLE_RATE
+    time_in_ms = 1e3 * np.linspace(0, duration - dt, NUM_AUDIO_SAMPLES)
+    sound_line_l, = sound_ax.plot(time_in_ms, np.zeros(NUM_AUDIO_SAMPLES))
+    sound_line_r, = sound_ax.plot(time_in_ms, np.zeros(NUM_AUDIO_SAMPLES))
 
     # LOOP
     while True:
@@ -97,9 +95,8 @@ def main():
 
         if VIDEO_DISPLAY_ON:
             # Display the video frame using OpenCV
-            tic = perf_counter()
             cv.imshow('video_frame', frame)
-            print(f'{perf_counter() - tic}')
+
 
         if (
                 cv.waitKey(1) == ord('q')  # detect keypress with CV window focus.
