@@ -14,7 +14,7 @@ SCOPE_SAMPLE_RATE = 1e3
 HIST_BINS = 12
 
 VIDEO_DISPLAY_ON = True
-VIDEO_HISTOGRAM_ON = False
+VIDEO_HISTOGRAM_ON = True
 OSCILLOSCOPE_ON = False
 
 
@@ -23,9 +23,6 @@ def calc_bin_centres(bin_edges):
 
 
 def main():
-
-    print("Running main")
-
     logging.basicConfig(level=logging.INFO)
 
     # Devices
@@ -118,7 +115,7 @@ def main():
             if (
                     cv.waitKey(1) == ord('q')  # detect keypress with CV window focus.
                     # The wait is required to display the video frame.
-                    or not cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE)  # detect CV window close
+                    or not cv.getWindowProperty("video_frame", cv.WND_PROP_VISIBLE)  # detect CV window close
             ):
                 break
 
