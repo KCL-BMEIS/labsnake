@@ -3,19 +3,19 @@ import logging
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
-import soundcard as sc
 
 from labsnake.timer import Timer
 
 logger = logging.getLogger(__name__)
 
+SCOPE_RECORD_LENGTH = 1024
+SCOPE_SAMPLE_RATE = 1e3
+
 HIST_BINS = 12
-SAMPLE_RATE = 48000
-NUM_AUDIO_SAMPLES = 1024
 
 VIDEO_DISPLAY_ON = True
-VIDEO_HISTOGRAM_ON = True
-AUDIO_SCOPE_ON = True
+VIDEO_HISTOGRAM_ON = False
+OSCILLOSCOPE_ON = False
 
 
 def calc_bin_centres(bin_edges):
@@ -23,11 +23,13 @@ def calc_bin_centres(bin_edges):
 
 
 def main():
+
+    print("Running main")
+
     logging.basicConfig(level=logging.INFO)
 
     # Devices
     camera = cv.VideoCapture(0)
-    microphone = sc.default_microphone()
     if not camera.isOpened():
         print("Cannot open camera")
         exit()
@@ -44,23 +46,22 @@ def main():
     g_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'g')
     b_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'b')
 
-    audio_fig, sound_ax = plt.subplots(1, 1)
-    sound_ax.set_ylim([-0.1, 0.1])
-    sound_ax.set_xlabel('Time (ms)')
-    sound_ax.set_ylabel('Amplitude')
+    scope_fig, scope_ax = plt.subplots(1, 1)
+    scope_ax.set_ylim([-0.1, 0.1])
+    scope_ax.set_xlabel('Time (ms)')
+    scope_ax.set_ylabel('Amplitude')
 
-    # init audio scope
-    duration = NUM_AUDIO_SAMPLES / SAMPLE_RATE
-    dt = 1 / SAMPLE_RATE
-    time_in_ms = 1e3 * np.linspace(0, duration - dt, NUM_AUDIO_SAMPLES)
-    sound_line_l, = sound_ax.plot(time_in_ms, np.zeros(NUM_AUDIO_SAMPLES))
-    sound_line_r, = sound_ax.plot(time_in_ms, np.zeros(NUM_AUDIO_SAMPLES))
+    # init scope
+    duration = SCOPE_RECORD_LENGTH / SCOPE_SAMPLE_RATE
+    dt = 1 / SCOPE_SAMPLE_RATE
+    time_in_ms = 1e3 * np.linspace(0, duration - dt, SCOPE_RECORD_LENGTH)
+    scope_line, = scope_ax.plot(time_in_ms, np.zeros(SCOPE_RECORD_LENGTH))
 
     # Timers
     camera_read_timer = Timer(label="Camera frame grabbing")
     histogram_rendering_timer = Timer(label="Histogram rendering")
     rendering_loop_timer = Timer(label="Rendering loop")
-    sound_acquisition_timer = Timer(label="Sound recording timer")
+    scope_acquisition_timer = Timer(label="Scope recording timer")
 
     # LOOP
     while True:
@@ -73,6 +74,7 @@ def main():
                         print("Can't receive frame (stream end?). Exiting ...")
                         break
 
+            if VIDEO_HISTOGRAM_ON:
                 # OpenCV colour format is BGR
                 b, bin_edges_b = np.histogram(frame[:, :, 0], bins=HIST_BINS)
                 g, bin_edges_g = np.histogram(frame[:, :, 1], bins=HIST_BINS)
@@ -89,26 +91,25 @@ def main():
                 hist_fig.canvas.draw()
 
                 hist_figure_bitmap = np.frombuffer(hist_fig.canvas.tostring_rgb(), dtype=np.uint8)
-                hist_figure_bitmap = hist_figure_bitmap.reshape(hist_fig.canvas.get_width_height()[::-1] + (3,))
+                hist_figure_bitmap = hist_figure_bitmap.reshape(hist_fig.canvas.get_width_height(
+                    physical=True)[::-1] + (3,))
 
                 cv.imshow('hist', hist_figure_bitmap)
 
-            # Audio
-            if AUDIO_SCOPE_ON:
+            # Oscilloscope
+            if OSCILLOSCOPE_ON:
 
-                with sound_acquisition_timer:
-                    with microphone.recorder(samplerate=SAMPLE_RATE) as mic:
-                        mic_data = mic.record(numframes=NUM_AUDIO_SAMPLES)
+                with scope_acquisition_timer:
+                    scope_data = np.random.randn(SCOPE_RECORD_LENGTH)
+                scope_line.set_ydata(scope_data)
 
-                sound_line_l.set_ydata(mic_data[:, 0])
-                sound_line_r.set_ydata(mic_data[:, 1])
+                scope_fig.canvas.draw()
 
-                audio_fig.canvas.draw()
+                scope_figure_bitmap = np.frombuffer(scope_fig.canvas.tostring_rgb(), dtype=np.uint8)
+                scope_figure_bitmap = scope_figure_bitmap.reshape(scope_fig.canvas.get_width_height(
+                    physical=True)[::-1] + (3,))
 
-                audio_figure_bitmap = np.frombuffer(audio_fig.canvas.tostring_rgb(), dtype=np.uint8)
-                audio_figure_bitmap = audio_figure_bitmap.reshape(audio_fig.canvas.get_width_height()[::-1] + (3,))
-
-                cv.imshow('audio', audio_figure_bitmap)
+                cv.imshow('scope', scope_figure_bitmap)
 
             if VIDEO_DISPLAY_ON:
                 # Display the video frame using OpenCV
@@ -117,7 +118,7 @@ def main():
             if (
                     cv.waitKey(1) == ord('q')  # detect keypress with CV window focus.
                     # The wait is required to display the video frame.
-                    or cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE)  # detect CV window close
+                    or not cv.getWindowProperty("frame", cv.WND_PROP_VISIBLE)  # detect CV window close
             ):
                 break
 
