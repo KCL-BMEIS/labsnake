@@ -13,6 +13,10 @@ SCOPE_SAMPLE_RATE = 1e3
 
 HIST_BINS = 12
 
+VIDEO_WINDOW_NAME = "CAMERA. Press 'q' to quit."
+HISTOGRAM_WINDOW_NAME = "COLOUR HISTOGRAM"
+OSCILLOSCOPE_WINDOW_NAME = "OSCILLOSCOPE"
+
 VIDEO_DISPLAY_ON = True
 VIDEO_HISTOGRAM_ON = True
 OSCILLOSCOPE_ON = False
@@ -91,7 +95,7 @@ def main():
                 hist_figure_bitmap = hist_figure_bitmap.reshape(hist_fig.canvas.get_width_height(
                     physical=True)[::-1] + (3,))
 
-                cv.imshow('hist', hist_figure_bitmap)
+                cv.imshow(HISTOGRAM_WINDOW_NAME, hist_figure_bitmap)
 
             # Oscilloscope
             if OSCILLOSCOPE_ON:
@@ -106,16 +110,19 @@ def main():
                 scope_figure_bitmap = scope_figure_bitmap.reshape(scope_fig.canvas.get_width_height(
                     physical=True)[::-1] + (3,))
 
-                cv.imshow('scope', scope_figure_bitmap)
+                cv.imshow(OSCILLOSCOPE_WINDOW_NAME, scope_figure_bitmap)
 
             if VIDEO_DISPLAY_ON:
                 # Display the video frame using OpenCV
-                cv.imshow('video_frame', frame)
+                cv.imshow(VIDEO_WINDOW_NAME, frame)
 
-            if (
-                    cv.waitKey(1) == ord('q')  # detect keypress with CV window focus.
-                    # The wait is required to display the video frame.
-                    or not cv.getWindowProperty("video_frame", cv.WND_PROP_VISIBLE)  # detect CV window close
+            wait_result = cv.pollKey()
+            print(wait_result)
+
+            if (wait_result == ord('q')
+                # detect keypress with CV window focus.
+                # The wait is required to display the video frame.
+                or not cv.getWindowProperty(VIDEO_WINDOW_NAME, cv.WND_PROP_VISIBLE)  # detect CV window close
             ):
                 break
 
