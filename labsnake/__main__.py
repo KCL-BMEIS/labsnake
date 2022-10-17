@@ -3,6 +3,7 @@ import logging
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy._typing import NDArray
 
 from labsnake.timer import Timer
 
@@ -18,8 +19,12 @@ HISTOGRAM_WINDOW_NAME = "COLOUR HISTOGRAM"
 OSCILLOSCOPE_WINDOW_NAME = "OSCILLOSCOPE"
 
 VIDEO_DISPLAY_ON = True
-VIDEO_HISTOGRAM_ON = True
+VIDEO_HISTOGRAM_ON = False
 OSCILLOSCOPE_ON = False
+
+
+def dilate_video_frame(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    return cv.dilate(image, cv.getStructuringElement(cv.MORPH_CROSS, (80, 80), (40, 40)))
 
 
 def calc_bin_centres(bin_edges):
@@ -63,6 +68,7 @@ def main():
     histogram_rendering_timer = Timer(label="Histogram rendering")
     rendering_loop_timer = Timer(label="Rendering loop")
     scope_acquisition_timer = Timer(label="Scope recording timer")
+    video_processing_timer = Timer(label="Video processing")
 
     # LOOP
     while True:
@@ -114,12 +120,12 @@ def main():
 
             if VIDEO_DISPLAY_ON:
                 # Display the video frame using OpenCV
-                cv.imshow(VIDEO_WINDOW_NAME, frame)
 
-            wait_result = cv.pollKey()
-            print(wait_result)
+                with video_processing_timer:
+                    frame_morphed = dilate_video_frame(frame)
+                cv.imshow(VIDEO_WINDOW_NAME, frame_morphed)
 
-            if (wait_result == ord('q')
+            if (cv.pollKey() == ord('q')
                 # detect keypress with CV window focus.
                 # The wait is required to display the video frame.
                 or not cv.getWindowProperty(VIDEO_WINDOW_NAME, cv.WND_PROP_VISIBLE)  # detect CV window close
