@@ -3,6 +3,8 @@ import logging
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
+import pyaudio
+from numpy import frombuffer
 from numpy._typing import NDArray
 
 from labsnake.timer import Timer
@@ -19,8 +21,8 @@ HISTOGRAM_WINDOW_NAME = "COLOUR HISTOGRAM"
 OSCILLOSCOPE_WINDOW_NAME = "OSCILLOSCOPE"
 
 VIDEO_DISPLAY_ON = True
-VIDEO_HISTOGRAM_ON = False
-OSCILLOSCOPE_ON = False
+VIDEO_HISTOGRAM_ON = True
+OSCILLOSCOPE_ON = True
 
 
 def dilate_video_frame(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
@@ -40,6 +42,12 @@ def main():
         print("Cannot open camera")
         exit()
 
+    buffer_size = 1024
+    audio_dtype = pyaudio.paInt16
+    num_audio_channels = 1
+    audio_rate = 44100
+    py_audio = pyaudio.PyAudio()
+
     # INIT
     hist_fig, hist_ax = plt.subplots(1, 1)
     hist_ax.set_xlabel('Pixel intensity')
@@ -53,7 +61,7 @@ def main():
     b_line, = hist_ax.plot(np.arange(HIST_BINS), np.zeros(HIST_BINS), 'b')
 
     scope_fig, scope_ax = plt.subplots(1, 1)
-    scope_ax.set_ylim([-0.1, 0.1])
+    scope_ax.set_ylim([-1, 1])
     scope_ax.set_xlabel('Time (ms)')
     scope_ax.set_ylabel('Amplitude')
 
@@ -71,6 +79,11 @@ def main():
     video_processing_timer = Timer(label="Video processing")
 
     # LOOP
+    stream = py_audio.open(format=audio_dtype,
+                    channels=num_audio_channels,
+                    rate=audio_rate,
+                    input=True,
+                    frames_per_buffer=buffer_size)
     while True:
         with rendering_loop_timer:
 
@@ -107,8 +120,9 @@ def main():
             if OSCILLOSCOPE_ON:
 
                 with scope_acquisition_timer:
-                    scope_data = np.random.randn(SCOPE_RECORD_LENGTH)
-                scope_line.set_ydata(scope_data)
+                    scope_data = frombuffer(stream.read(buffer_size), dtype=np.int16)
+                    scope_data2 = scope_data / (2 ** 15)
+                    scope_line.set_ydata(scope_data2)
 
                 scope_fig.canvas.draw()
 
